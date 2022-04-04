@@ -1,0 +1,10 @@
+[package]
+name = "max2034x"
+version = "0.1.0"
+edition = "2021"
+authors = ["Henk Oordt <hd@oordt.dev>"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+embedded-hal = "0.2.5"
