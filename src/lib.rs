@@ -1,5 +1,8 @@
 #![no_std]
-
+//! Driver crate for the MAX20343/MAX20344 family of buck/boost converters.
+//! Based on [`device_driver`](https://docs.rs/device-driver).  
+//! 
+//! *Documentation based on the datasheet, which can be found [here](https://datasheets.maximintegrated.com/en/ds/MAX20343-MAX20344.pdf).*
 use core::marker::PhantomData;
 
 use device_driver::ll::{register::RegisterInterface, LowLevelDevice};

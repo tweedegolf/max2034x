@@ -1,5 +1,3 @@
-use crate::ll::Max2034xInterface;
-
 pub trait DeviceVersion {
     const CHIP_ID: u8;
     const ADDR: u8;
@@ -26,16 +24,3 @@ device_version!(Max20343K, 0x02, 0x68);
 device_version!(Max20343J, 0x03, 0x68);
 device_version!(Max20343N, 0x03, 0x68);
 device_version!(Max20344E, 0x02, 0x6C);
-
-// impl<V, I2C> DeviceVersion for Max2034xInterface<V, I2C>
-// where
-//     V: DeviceVersion,
-// {
-//     fn expected_chip_id() -> u8 {
-//         V::expected_chip_id()
-//     }
-
-//     fn addr() -> u8 {
-//         V::addr()
-//     }
-// }
