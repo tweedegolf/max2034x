@@ -8,3 +8,4 @@ authors = ["Henk Oordt <hd@oordt.dev>"]
 
 [dependencies]
 embedded-hal = "0.2.5"
+device-driver = "0.3.1"

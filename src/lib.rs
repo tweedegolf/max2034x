@@ -1,39 +1,55 @@
 #![no_std]
 
-use embedded_hal::blocking::i2c::{Write, WriteRead};
+use core::marker::PhantomData;
 
-#[derive(Debug)]
-pub enum Error<EBUS> {
-    Bus(EBUS),
-    BadDeviceId,
+use device_driver::ll::{register::RegisterInterface, LowLevelDevice};
+use error::DeviceError;
+use ll::Max2034xLL;
+use state::{Initialized, State, Uninitialized};
+
+pub mod devices;
+pub mod error;
+pub mod ll;
+
+pub struct Max2034x<I: ll::HardwareInterface, S: State> {
+    ll: Max2034xLL<I>,
+    _marker: PhantomData<S>,
 }
 
-impl<EBUS> From<EBUS> for Error<EBUS> {
-    fn from(e_bus: EBUS) -> Self {
-        Self::Bus(e_bus)
-    }
-}
-
-pub type Result<T, EBUS> = core::result::Result<T, Error<EBUS>>;
-pub struct Max2034x<I2C> {
-    i2c: I2C,
-}
-
-impl<I2C, E> Max2034x<I2C>
-where
-    I2C: Write<Error = E> + WriteRead<Error = E>,
-{
-    pub fn new(i2c: I2C) -> Result<Self, E> {
-        let mut max2034x = Self { i2c };
-        if max2034x.get_device_id()? != 0x02 {
-            return Err(Error::BadDeviceId);
+impl<I: ll::HardwareInterface> Max2034x<I, Uninitialized> {
+    pub fn new(interface: I) -> Self {
+        Self {
+            ll: Max2034xLL::new(interface),
+            _marker: PhantomData,
         }
-        Ok(max2034x)
     }
 
-    pub fn get_device_id(&mut self) -> Result<u8, E> {
-        let mut buffer = [0u8; 1];
-        self.i2c.write_read(0x68, &[0x00], &mut buffer)?;
-        Ok(buffer[0])
+    pub fn init(
+        mut self,
+    ) -> Result<Max2034x<I, Initialized>, DeviceError<<I as RegisterInterface>::InterfaceError>>
+    {
+        let chip_id = self.ll.registers().chip_id().read()?.id();
+        if chip_id != I::CHIP_ID {
+            return Err(DeviceError::BadDeviceId);
+        }
+        Ok(Max2034x {
+            ll: self.ll,
+            _marker: PhantomData,
+        })
     }
+}
+
+pub mod state {
+    pub trait State {}
+
+    macro_rules! state {
+        ($state:ident) => {
+            pub struct $state;
+
+            impl State for $state {}
+        };
+    }
+
+    state!(Uninitialized);
+    state!(Initialized);
 }
