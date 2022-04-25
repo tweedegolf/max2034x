@@ -9,5 +9,3 @@ impl<EBUS> From<EBUS> for DeviceError<EBUS> {
         Self::Bus(e_bus)
     }
 }
-
-// pub type Result<T, EBUS> = core::result::Result<T, DeviceError<EBUS>>;
