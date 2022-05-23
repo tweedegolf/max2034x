@@ -1,30 +1,37 @@
 #![no_std]
-//! Driver crate for the MAX20343/MAX20344 family of buck/boost converters.
-//! Based on [`device_driver`](https://docs.rs/device-driver).  
-//!
-//! *Documentation based on the datasheet, which can be found [here](https://datasheets.maximintegrated.com/en/ds/MAX20343-MAX20344.pdf).*
+#![doc = include_str!("../README.md")]
+
+use core::fmt::Debug;
 use core::marker::PhantomData;
 
 use device_driver::{
     ll::{register::RegisterInterface, LowLevelDevice},
     Bit,
 };
-use embedded_hal::digital::v2::{InputPin, OutputPin};
+use devices::DeviceVersion;
+use embedded_hal::{
+    blocking::i2c::{WriteIter, WriteIterRead},
+    digital::v2::{InputPin, OutputPin},
+};
 use error::DeviceError;
 use ll::{HardwareInterface, Max2034xLL};
 use state::{Disabled, Enabled, InitializedState, State, Uninitialized};
 pub use types::*;
 
+/// Version-specific declarations
 pub mod devices;
+
 pub mod error;
 pub mod ll;
 pub mod types;
 
+/// Pin struct for the boost fast pin and the interrupt pin.
 pub struct Pins<BF: OutputPin, BI: InputPin> {
     pub boost_fast: Option<BF>,
     pub boost_nint: Option<BI>,
 }
 
+/// Max2034x device driver.
 pub struct Max2034x<I: HardwareInterface, BF: OutputPin, BI: InputPin, S: State> {
     ll: Max2034xLL<I>,
     pins: Pins<BF, BI>,
@@ -33,35 +40,40 @@ pub struct Max2034x<I: HardwareInterface, BF: OutputPin, BI: InputPin, S: State>
 }
 
 type Result<T, I> = core::result::Result<T, DeviceError<<I as RegisterInterface>::InterfaceError>>;
+type NewDeviceResult<V, I2C, BF, BI, BS> =
+    Result<Max2034x<ll::Max2034xInterface<V, I2C>, BF, BI, BS>, ll::Max2034xInterface<V, I2C>>;
 
-impl<I: HardwareInterface, BF: OutputPin, BI: InputPin, S: State> Max2034x<I, BF, BI, S> {
-    /// Helper method to alter the state
-    fn into_state<N: State>(self) -> Max2034x<I, BF, BI, N> {
-        Max2034x {
-            ll: self.ll,
-            pins: self.pins,
-            inductor: self.inductor,
-            _marker: PhantomData,
-        }
-    }
-
-    /// Get the device's Chip ID. See Table 3
-    /// in the Datasheet for expected values
-    pub fn get_chip_id(&mut self) -> Result<u8, I> {
-        let id = self.ll.registers().chip_id().read()?.id();
-        Ok(id)
+impl<V, I2C, EBUS, BF, BI> Max2034x<ll::Max2034xInterface<V, I2C>, BF, BI, Uninitialized>
+where
+    V: DeviceVersion,
+    I2C: WriteIter<Error = EBUS> + WriteIterRead<Error = EBUS>,
+    EBUS: Debug,
+    BF: OutputPin,
+    BI: InputPin,
+{
+    /// Create a new device instance. Creates a new low-level Max2034xInterface, and
+    /// calls [`Self::new`](Self::with_interface), passing the low-level interface.
+    pub fn new(
+        i2c: I2C,
+        version: V,
+        pins: Pins<BF, BI>,
+        inductor: Inductor,
+    ) -> NewDeviceResult<V, I2C, BF, BI, V::BootState> {
+        let ll = ll::Max2034xInterface::new(i2c, version);
+        Self::with_interface(ll, pins, inductor)
     }
 }
 
 impl<I: HardwareInterface, BF: OutputPin, BI: InputPin> Max2034x<I, BF, BI, Uninitialized> {
-    /// Create a new device instance. Verifies the device ID internally,
-    /// and sets the FET scale according to the passed Inductor if it
-    /// does not correspond to the default value of the BBstFETScale register
-    /// of the device version.
+    /// Create a new device instance with the passed low level interface.
+    /// Verifies the device ID internally, and sets the FET scale
+    /// according to the passed Inductor if it does not correspond
+    /// to the default value of the BBstFETScale register of the device version.  
+    ///
     /// For initally enabled devices (BBstEn = Enabled in Table 3 of the datasheet), you
     /// need to disable and re-enable the device in order for the FET scale
     /// update to take effect if it differs from the default.
-    pub fn new(
+    pub fn with_interface(
         interface: I,
         pins: Pins<BF, BI>,
         inductor: Inductor,
@@ -96,6 +108,25 @@ impl<I: HardwareInterface, BF: OutputPin, BI: InputPin> Max2034x<I, BF, BI, Unin
     }
 }
 
+impl<I: HardwareInterface, BF: OutputPin, BI: InputPin, S: State> Max2034x<I, BF, BI, S> {
+    /// Helper method to alter the state.
+    fn into_state<N: State>(self) -> Max2034x<I, BF, BI, N> {
+        Max2034x {
+            ll: self.ll,
+            pins: self.pins,
+            inductor: self.inductor,
+            _marker: PhantomData,
+        }
+    }
+
+    /// Get the device's Chip ID. See Table 3
+    /// in the Datasheet for expected values
+    pub fn get_chip_id(&mut self) -> Result<u8, I> {
+        let id = self.ll.registers().chip_id().read()?.id();
+        Ok(id)
+    }
+}
+
 impl<I: HardwareInterface, BF: OutputPin, BI: InputPin> Max2034x<I, BF, BI, Disabled> {
     /// Enable device output power. If succesful, returns an enabled device.
     pub fn enable(mut self) -> Result<Max2034x<I, BF, BI, Enabled>, I> {
@@ -106,6 +137,7 @@ impl<I: HardwareInterface, BF: OutputPin, BI: InputPin> Max2034x<I, BF, BI, Disa
         Ok(self.into_state())
     }
 
+    /// Enable or disable zero crossing comparator.
     pub fn enable_zero_crossing_comparator(&mut self, enabled: bool) -> Result<(), I> {
         self.ll
             .registers()
@@ -114,6 +146,7 @@ impl<I: HardwareInterface, BF: OutputPin, BI: InputPin> Max2034x<I, BF, BI, Disa
         Ok(())
     }
 
+    /// Enable or disable pass through mode.
     pub fn enable_pass_through_mode(&mut self, enabled: bool) -> Result<(), I> {
         self.ll
             .registers()
@@ -122,6 +155,7 @@ impl<I: HardwareInterface, BF: OutputPin, BI: InputPin> Max2034x<I, BF, BI, Disa
         Ok(())
     }
 
+    /// Enable or disable integrator.
     pub fn enable_integrator(&mut self, enabled: bool) -> Result<(), I> {
         self.ll
             .registers()
@@ -130,6 +164,7 @@ impl<I: HardwareInterface, BF: OutputPin, BI: InputPin> Max2034x<I, BF, BI, Disa
         Ok(())
     }
 
+    /// Set buck-boost mode.
     pub fn set_buck_boost_mode(&mut self, mode: BuckBoostMode) -> Result<(), I> {
         self.ll
             .registers()
@@ -153,6 +188,7 @@ impl<I: HardwareInterface, BF: OutputPin, BI: InputPin> Max2034x<I, BF, BI, Enab
 impl<I: HardwareInterface, BF: OutputPin, BI: InputPin, S: InitializedState>
     Max2034x<I, BF, BI, S>
 {
+    /// Enable or disable gradually ramping up the output voltage.
     pub fn enable_ramp(&mut self, enabled: bool) -> Result<(), I> {
         self.ll
             .registers()
@@ -161,6 +197,7 @@ impl<I: HardwareInterface, BF: OutputPin, BI: InputPin, S: InitializedState>
         Ok(())
     }
 
+    /// Enable or disable low EMI mode.
     pub fn enable_low_emi(&mut self, enabled: bool) -> Result<(), I> {
         self.ll
             .registers()
@@ -169,6 +206,7 @@ impl<I: HardwareInterface, BF: OutputPin, BI: InputPin, S: InitializedState>
         Ok(())
     }
 
+    /// Enable or disable active discharge.
     pub fn enable_active_discharge(&mut self, enabled: bool) -> Result<(), I> {
         self.ll
             .registers()
@@ -177,6 +215,7 @@ impl<I: HardwareInterface, BF: OutputPin, BI: InputPin, S: InitializedState>
         Ok(())
     }
 
+    /// Enable or disable passive discharge.
     pub fn enable_passive_discharge(&mut self, enabled: bool) -> Result<(), I> {
         self.ll
             .registers()
@@ -185,6 +224,7 @@ impl<I: HardwareInterface, BF: OutputPin, BI: InputPin, S: InitializedState>
         Ok(())
     }
 
+    /// Enable or disable using the fast boost pin to toggle fast boost mode.
     pub fn enable_fast_boost_pin(&mut self, enabled: bool) -> Result<(), I> {
         self.ll
             .registers()
@@ -193,6 +233,7 @@ impl<I: HardwareInterface, BF: OutputPin, BI: InputPin, S: InitializedState>
         Ok(())
     }
 
+    /// Set force switch over mode.
     pub fn set_force_switch_over(&mut self, mode: SwitchOverMode) -> Result<(), I> {
         self.ll
             .registers()
@@ -200,6 +241,8 @@ impl<I: HardwareInterface, BF: OutputPin, BI: InputPin, S: InitializedState>
             .modify(|_, w| w.swo_frc_in(Bit::from(mode as u8)))?;
         Ok(())
     }
+
+    /// Enable or disable fast boost by register.
     pub fn enable_fast_boost_by_register(&mut self, enabled: bool) -> Result<(), I> {
         self.ll
             .registers()
@@ -209,6 +252,10 @@ impl<I: HardwareInterface, BF: OutputPin, BI: InputPin, S: InitializedState>
         Ok(())
     }
 
+    /// Enable or disable fast boost using the boost_fast pin.
+    /// Does nothing if the passed pin is `None`.
+    /// Be sure to enable the fast boost bin using
+    /// [`Self::enable_fast_boost_pin`](Self::enable_fast_boost_pin).
     pub fn enable_fast_boost(
         &mut self,
         enabled: bool,
@@ -219,6 +266,8 @@ impl<I: HardwareInterface, BF: OutputPin, BI: InputPin, S: InitializedState>
         }
     }
 
+    /// Read `boost_nint` pin level, indicating whether an interrupt is active.
+    /// Returns `false` if the passed pin in `None`.
     pub fn interrupt_active(&mut self) -> core::result::Result<bool, <BI as InputPin>::Error> {
         match &self.pins.boost_nint {
             Some(p) => p.is_low(),
@@ -226,16 +275,19 @@ impl<I: HardwareInterface, BF: OutputPin, BI: InputPin, S: InitializedState>
         }
     }
 
+    /// Read the interrupt cause register.
     pub fn get_interrupt_cause(&mut self) -> Result<Interrupt, I> {
         let raw = self.ll.registers().int().read()?.get_raw()[0];
         Ok(Interrupt::from_raw(raw))
     }
 
+    /// Read the status register.
     pub fn get_status(&mut self) -> Result<Interrupt, I> {
         let raw = self.ll.registers().status().read()?.get_raw()[0];
         Ok(Interrupt::from_raw(raw))
     }
 
+    /// Set interrupt masks.
     pub fn set_interrupt_mask(&mut self, interrupt: Interrupt) -> Result<(), I> {
         self.ll.registers().mask().modify(|_, w| {
             w.in_uvlo_int_m(Bit::from(interrupt.in_uvlo()))
@@ -268,7 +320,7 @@ impl<I: HardwareInterface, BF: OutputPin, BI: InputPin, S: InitializedState>
     /// of locking and unlocking the BBstVSet register and masking and
     /// unmasking from locking using the LockMsk register.
     pub fn set_output_voltage(&mut self, v_out: OutputVoltage) -> Result<(), I> {
-        // Below values are based on figure 5 of the datasheet
+        // Below values are based on figure 5 of the datasheet.
         let (step_up_raw, step_down_raw) = match v_out.millivolts() {
             2500..=2749 => (0b0100, 0b1010),
             2750..=3124 => (0b0100, 0b1001),
@@ -284,7 +336,7 @@ impl<I: HardwareInterface, BF: OutputPin, BI: InputPin, S: InitializedState>
             _ => unreachable!("Invalid OutputVoltage value"),
         };
         // We follow the recommended values here (figure 5),
-        // so no further need to check for safety
+        // so no further need to check for safety.
         self.set_raw_peak_current_limits(step_up_raw, step_down_raw)?;
 
         self.lock_vset(false)?;
@@ -296,7 +348,7 @@ impl<I: HardwareInterface, BF: OutputPin, BI: InputPin, S: InitializedState>
             .modify(|_, w| w.b_bst_v_set(v_out.raw));
         self.lock_vset(true)?;
 
-        // make sure we lock again before returning an error
+        // make sure we lock again before returning an error.
         res?;
         Ok(())
     }
@@ -320,7 +372,7 @@ impl<I: HardwareInterface, BF: OutputPin, BI: InputPin, S: InitializedState>
             _ => unreachable!("Invalid CurrentLimit value"),
         };
 
-        // Value safety is enforced by clipping step_down_raw to the minimum
+        // Value safety is enforced by clipping step_down_raw to the minimum.
         self.set_raw_peak_current_limits(
             step_up.raw(self.inductor),
             step_down.raw(self.inductor).max(step_down_minimum_raw),
@@ -329,7 +381,7 @@ impl<I: HardwareInterface, BF: OutputPin, BI: InputPin, S: InitializedState>
 
     /// Sets peak current limits from raw values.
     /// Make sure these values are within the bounds specified
-    /// figure 4 of the datasheet
+    /// figure 4 of the datasheet.
     fn set_raw_peak_current_limits(&mut self, step_up_raw: u8, step_down_raw: u8) -> Result<(), I> {
         self.ll
             .registers()
@@ -339,6 +391,7 @@ impl<I: HardwareInterface, BF: OutputPin, BI: InputPin, S: InitializedState>
         Ok(())
     }
 
+    /// Set switching frequency threshold.
     pub fn set_switch_freq_threshold(&mut self, f_ths: FrequencyThreshold) -> Result<(), I> {
         self.ll
             .registers()
@@ -349,9 +402,11 @@ impl<I: HardwareInterface, BF: OutputPin, BI: InputPin, S: InitializedState>
 }
 
 pub mod state {
-    /// A state that indicates the device was initialized
+    //! Device state definitions, used for typestate setup.
+
+    /// A state that indicates the device was initialized.
     pub trait InitializedState: State {}
-    /// General device state, cannot be implemented by users
+    /// General device state. Cannot be implemented by users.
     pub trait State: Sealed {}
 
     macro_rules! state {
@@ -374,6 +429,6 @@ pub mod state {
     }
 
     state!(Uninitialized, "Uninitialized device");
-    state!(Disabled, "Buck-boost enabled ", true);
+    state!(Disabled, "Buck-boost enabled", true);
     state!(Enabled, "Buck-boost disabled", true);
 }

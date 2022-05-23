@@ -1,6 +1,11 @@
+//! Error type
+
 #[derive(Debug)]
+/// Device error type
 pub enum DeviceError<EBUS> {
+    /// Bus error.
     Bus(EBUS),
+    /// Device ID not as expected.
     BadDeviceId,
 }
 

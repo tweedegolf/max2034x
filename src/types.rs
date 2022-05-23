@@ -1,10 +1,16 @@
+//! Device type definitions.
 
 #[repr(u8)]
 #[derive(Clone, Copy, Debug)]
+/// Device interrupt status and mask
 pub enum Interrupt {
+    /// No interrupt
     None = 0x00,
+    /// InUVLO interrupt
     InUVLO = 0x01,
+    /// OutGood interrupt
     OutGood = 0x02,
+    /// Both
     Both = 0x03,
 }
 
@@ -33,13 +39,19 @@ impl Interrupt {
 
 #[repr(u8)]
 #[derive(Clone, Copy, Debug)]
+/// Device Buck-boost mode
 pub enum BuckBoostMode {
+    /// Buck-boost mode.
     BuckBoost = 0x00,
+    /// Buck-only mode. Can be used if V<sub>OUT</sub> > V<sub>IN</sub>,
+    /// and uses less power.
     BuckOnly = 0x01,
 }
 
 #[repr(u8)]
 #[derive(Clone, Copy, Debug)]
+/// Switch over mode. Defines whether the device internals
+/// are powered from V<sub>IN</sub> or V<sub>OUT</sub>
 pub enum SwitchOverMode {
     Vout = 0x00,
     Vin = 0x01,

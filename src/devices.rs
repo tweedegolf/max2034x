@@ -3,7 +3,13 @@ use crate::{
     Inductor,
 };
 
-pub trait DeviceVersion {
+use self::sealed::Sealed;
+mod sealed {
+    pub trait Sealed {}
+}
+
+/// Device version trait. Cannot be implemented by users.
+pub trait DeviceVersion: Sealed {
     /// State in which the device boots:
     type BootState: InitializedState;
     /// Chip ID reported by device
@@ -26,6 +32,8 @@ macro_rules! device_version {
             const ADDR: u8 = $addr;
             const DEFAULT_INDUCTOR_CONFIG: Inductor = $inductor;
         }
+
+        impl Sealed for $device {}
     };
 }
 
