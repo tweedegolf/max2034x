@@ -7,5 +7,6 @@ authors = ["Henk Oordt <hd@oordt.dev>"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-embedded-hal = "0.2.5"
+embedded-hal = { version = "0.2.5", features = ["unproven"]     }
 device-driver = "0.3.1"
+num_enum = "0.5.1"

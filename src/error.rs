@@ -1,6 +1,11 @@
+//! Error type
+
 #[derive(Debug)]
+/// Device error type
 pub enum DeviceError<EBUS> {
+    /// Bus error.
     Bus(EBUS),
+    /// Device ID not as expected.
     BadDeviceId,
 }
 
@@ -9,5 +14,3 @@ impl<EBUS> From<EBUS> for DeviceError<EBUS> {
         Self::Bus(e_bus)
     }
 }
-
-// pub type Result<T, EBUS> = core::result::Result<T, DeviceError<EBUS>>;
