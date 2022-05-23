@@ -3,7 +3,7 @@
 use crate::devices::DeviceVersion;
 use crate::error::DeviceError;
 use crate::state::InitializedState;
-use crate::Inductor;
+use crate::{BuckBoostMode, FrequencyThreshold, Inductor, InterruptStatus, SwitchOverMode};
 use core::fmt::Debug;
 use core::iter::once;
 use core::marker::PhantomData;
@@ -130,7 +130,7 @@ Max2034xLL.registers<u8> = {
         /// internally, can only be changed while BBstEn = 0.
         /// - 0 = Buck-boost mode
         /// - 1 = Buck-only mode
-        b_bst_mode: u8 as Bit = RW 2..=2,
+        b_bst_mode: u8 as BuckBoostMode = RW 2..=2,
         /// Buck-Boost Active Discharge Control
         /// - 0 = Buck-boost not actively discharged
         /// - 1 = Buck-boost actively discharged on shutdown
@@ -151,7 +151,7 @@ Max2034xLL.registers<u8> = {
         /// - 01 = 35kHz rising / 8.25kHz falling
         /// - 10 = 50kHz rising / 12.5kHz falling
         /// - 11 = 100kHz rising / 25kHz falling
-        b_bst_high_sh: u8 = RW 6..=7,
+        b_bst_high_sh: u8 as FrequencyThreshold = RW 6..=7,
         /// Buck-Boost Output Voltage Setting
         /// 2.5V to 5.5V, Linear Scale, 50mV increments
         /// - 000000 = 2.5V
@@ -259,7 +259,7 @@ Max2034xLL.registers<u8> = {
         ///
         /// - 0 = Switch-over supply forced to V<sub>OUT</sub> when V<sub>OUT</sub> > V<sub>OUT_UVLO_R</sub>.
         /// - 1 = Switch-over supply forced to V<sub>IN</sub>.
-        swo_frc_in: u8 as Bit = RW 5..=5,
+        swo_frc_in: u8 as SwitchOverMode = RW 5..=5,
         /// Buck-Boost Integrator Enable
         /// The Integrator can be disabled to improve settling time on load transients at
         /// the cost of load regulation error. Latched internally, it can only be changed
@@ -293,37 +293,19 @@ Max2034xLL.registers<u8> = {
     },
     #[doc = "Status (0x05)"]
     status(RO, 0x05, 1) = {
-        /// Status of Output Voltage
-        ///
-        /// - 0 = Output has not reached full power capability
-        /// - 1 = Output voltage is high enough to support full power capability
-        out_good: u8 as Bit = RO 1..=1,
-        /// Status register showing whether input voltage is low enough to enable parallel
-        /// input NMOS.
-        ///
-        /// - 0 = V<sub>IN</sub> high enough for full power operation
-        /// - 1 = Power may be limited due to low V<sub>IN</sub>
-        in_uvlo: u8 as Bit = RO 0..=0,
+        /// Device status
+        status: u8 as InterruptStatus = RO 0..=1,
     },
     #[doc = "Int (0x06)"]
     int(RO, 0x06, 1) = {
-        /// Change in OutGood caused an interrupt
-        out_good_int: u8 as Bit = RO 1..=1,
-        /// Change in InUVLO caused an interrupt
-        in_uvlo_int: u8 as Bit = RO 0..=0,
+        /// Interrupt status, can be read to
+        /// find out what caused an IRQ.
+        int: u8 as InterruptStatus = RO 0..=1,
     },
     #[doc = "Mask (0x07)"]
     mask(RW, 0x07, 1) = {
-        /// OutGoodIntM masks the OutGoodInt interrupt.
-        ///
-        /// - 0 = Not masked
-        /// - 1 = Masked
-        out_good_int_m: u8 as Bit = RW 1..=1,
-        /// InUVLOIntM masks the InUVLOInt interrupt.
-        ///
-        /// - 0 = Not masked
-        /// - 1 = Masked
-        in_uvlo_int_m: u8 as Bit = RW 0..=0,
+        /// Interrupt mask
+        mask: u8 as InterruptStatus = RW 0..=1,
     },
     #[doc = "LockMsk (0x50)"]
     lock_msk(RW, 0x50, 1) = {

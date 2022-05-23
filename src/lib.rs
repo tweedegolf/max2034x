@@ -52,7 +52,7 @@ where
     BI: InputPin,
 {
     /// Create a new device instance. Creates a new low-level Max2034xInterface, and
-    /// calls [`Self::new`](Self::with_interface), passing the low-level interface.
+    /// calls [`Self::with_interface`], passing the low-level interface.
     pub fn new(
         i2c: I2C,
         version: V,
@@ -169,7 +169,7 @@ impl<I: HardwareInterface, BF: OutputPin, BI: InputPin> Max2034x<I, BF, BI, Disa
         self.ll
             .registers()
             .b_bst_cfg0()
-            .modify(|_, w| w.b_bst_mode(Bit::from(mode as u8)))?;
+            .modify(|_, w| w.b_bst_mode(mode))?;
         Ok(())
     }
 }
@@ -238,7 +238,7 @@ impl<I: HardwareInterface, BF: OutputPin, BI: InputPin, S: InitializedState>
         self.ll
             .registers()
             .b_bst_cfg1()
-            .modify(|_, w| w.swo_frc_in(Bit::from(mode as u8)))?;
+            .modify(|_, w| w.swo_frc_in(mode))?;
         Ok(())
     }
 
@@ -255,7 +255,7 @@ impl<I: HardwareInterface, BF: OutputPin, BI: InputPin, S: InitializedState>
     /// Enable or disable fast boost using the boost_fast pin.
     /// Does nothing if the passed pin is `None`.
     /// Be sure to enable the fast boost bin using
-    /// [`Self::enable_fast_boost_pin`](Self::enable_fast_boost_pin).
+    /// [`Self::enable_fast_boost_pin`].
     pub fn enable_fast_boost(
         &mut self,
         enabled: bool,
@@ -276,23 +276,23 @@ impl<I: HardwareInterface, BF: OutputPin, BI: InputPin, S: InitializedState>
     }
 
     /// Read the interrupt cause register.
-    pub fn get_interrupt_cause(&mut self) -> Result<Interrupt, I> {
-        let raw = self.ll.registers().int().read()?.get_raw()[0];
-        Ok(Interrupt::from_raw(raw))
+    pub fn get_interrupt_cause(&mut self) -> Result<InterruptStatus, I> {
+        let int = self.ll.registers().int().read()?.int().unwrap();
+        Ok(int)
     }
 
     /// Read the status register.
-    pub fn get_status(&mut self) -> Result<Interrupt, I> {
-        let raw = self.ll.registers().status().read()?.get_raw()[0];
-        Ok(Interrupt::from_raw(raw))
+    pub fn get_status(&mut self) -> Result<InterruptStatus, I> {
+        let status = self.ll.registers().status().read()?.status().unwrap();
+        Ok(status)
     }
 
-    /// Set interrupt masks.
-    pub fn set_interrupt_mask(&mut self, interrupt: Interrupt) -> Result<(), I> {
-        self.ll.registers().mask().modify(|_, w| {
-            w.in_uvlo_int_m(Bit::from(interrupt.in_uvlo()))
-                .out_good_int_m(Bit::from(interrupt.out_good()))
-        })?;
+    /// Enable an interrupt. Use [`InterruptStatus::Both`] to enable both interrupts.
+    pub fn enable_interrupt(&mut self, interrupt: InterruptStatus) -> Result<(), I> {
+        self.ll
+            .registers()
+            .mask()
+            .modify(|_, w| w.mask(!interrupt))?;
         Ok(())
     }
 
@@ -396,7 +396,7 @@ impl<I: HardwareInterface, BF: OutputPin, BI: InputPin, S: InitializedState>
         self.ll
             .registers()
             .b_bst_v_set()
-            .modify(|_, w| w.b_bst_high_sh(f_ths as u8))?;
+            .modify(|_, w| w.b_bst_high_sh(f_ths))?;
         Ok(())
     }
 }

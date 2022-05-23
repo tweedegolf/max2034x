@@ -9,3 +9,4 @@ authors = ["Henk Oordt <hd@oordt.dev>"]
 [dependencies]
 embedded-hal = { version = "0.2.5", features = ["unproven"]     }
 device-driver = "0.3.1"
+num_enum = "0.5.1"
