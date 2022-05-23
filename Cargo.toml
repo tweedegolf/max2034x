@@ -3,10 +3,19 @@ name = "max2034x"
 version = "0.1.0"
 edition = "2021"
 authors = ["Henk Oordt <hd@oordt.dev>"]
+description = "Driver crate for the MAX20343/MAX20344 family of buck/boost converters."
+readme = "README.md"
+repository = "https://github.com/tweedegolf/max2034x"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+license = "MIT OR Apache-2.0"
+keywords = ["MAX20343", "MAX20344", "embedded", "buck-boost", "driver"]
+categories = ["embedded", "no-std"]
+exclude = ["Cargo.lock", ".gitignore"]
 
 [dependencies]
 embedded-hal = { version = "0.2.5", features = ["unproven"]     }
 device-driver = "0.3.1"
 num_enum = "0.5.1"
+
+[badges]
+maintenance = {status = "passively-maintained" }
