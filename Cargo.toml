@@ -1,6 +1,6 @@
 [package]
 name = "max2034x"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 authors = ["Henk Oordt <hd@oordt.dev>"]
 description = "Driver crate for the MAX20343/MAX20344 family of buck/boost converters."
@@ -13,9 +13,9 @@ categories = ["embedded", "no-std"]
 exclude = ["Cargo.lock", ".gitignore"]
 
 [dependencies]
-embedded-hal = { version = "0.2.5", features = ["unproven"]     }
+embedded-hal = "0.2.7"
 device-driver = "0.3.1"
 num_enum = { version = "0.5.1", default_features = false }
 
 [badges]
-maintenance = {status = "passively-maintained" }
+maintenance = { status = "passively-maintained" }
