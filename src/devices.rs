@@ -23,12 +23,12 @@ pub trait DeviceVersion: Sealed {
 }
 
 macro_rules! device_version {
-    ($device:ident, $expected_chip_id:literal, $addr:literal, $boot_state:ident, $inductor:expr) => {
+    ($device:ident, $chip_id:literal, $addr:literal, $boot_state:ident, $inductor:expr) => {
         pub struct $device;
 
         impl DeviceVersion for $device {
             type BootState = $boot_state;
-            const CHIP_ID: u8 = $expected_chip_id;
+            const CHIP_ID: u8 = $chip_id;
             const ADDR: u8 = $addr;
             const DEFAULT_INDUCTOR_CONFIG: Inductor = $inductor;
         }
