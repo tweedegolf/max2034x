@@ -151,7 +151,7 @@ Max2034xLL.registers<u8> = {
         /// - 01 = 35kHz rising / 8.25kHz falling
         /// - 10 = 50kHz rising / 12.5kHz falling
         /// - 11 = 100kHz rising / 25kHz falling
-        b_bst_high_sh: u8 as FrequencyThreshold = RW 6..=7,
+        b_bst_fhigh_sh: u8 as FrequencyThreshold = RW 6..=7,
         /// Buck-Boost Output Voltage Setting
         /// 2.5V to 5.5V, Linear Scale, 50mV increments
         /// - 000000 = 2.5V
