@@ -1,14 +1,13 @@
 //! Low-level interface
 
-use crate::devices::DeviceVersion;
-use crate::error::DeviceError;
-use crate::state::InitializedState;
-use crate::{BuckBoostMode, FrequencyThreshold, Inductor, InterruptStatus, SwitchOverMode};
-use core::fmt::Debug;
-use core::iter::once;
-use core::marker::PhantomData;
-use device_driver::ll::register::RegisterInterface;
-use device_driver::{create_low_level_device, implement_registers, Bit};
+use crate::{
+    devices::DeviceVersion, error::DeviceError, state::InitializedState, BuckBoostMode,
+    FrequencyThreshold, Inductor, InterruptStatus, SwitchOverMode,
+};
+use core::{fmt::Debug, iter::once, marker::PhantomData};
+use device_driver::{
+    create_low_level_device, implement_registers, ll::register::RegisterInterface, Bit,
+};
 use embedded_hal::blocking::i2c::{WriteIter, WriteIterRead};
 
 /// Interface to the device

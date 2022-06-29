@@ -1,8 +1,7 @@
 #![no_std]
 #![doc = include_str!("../README.md")]
 
-use core::fmt::Debug;
-use core::marker::PhantomData;
+use core::{fmt::Debug, marker::PhantomData};
 
 use device_driver::{
     ll::{register::RegisterInterface, LowLevelDevice},
@@ -188,6 +187,12 @@ impl<I: HardwareInterface, BF: OutputPin, BI: InputPin> Max2034x<I, BF, BI, Enab
 impl<I: HardwareInterface, BF: OutputPin, BI: InputPin, S: InitializedState>
     Max2034x<I, BF, BI, S>
 {
+    /// Get access to the low level registers. This is useful for when you need to change
+    /// a register, but the high level interface hasn't implemented it yet.
+    pub fn ll(&mut self) -> &mut Max2034xLL<I> {
+        &mut self.ll
+    }
+
     /// Enable or disable gradually ramping up the output voltage.
     pub fn enable_ramp(&mut self, enabled: bool) -> Result<(), I> {
         self.ll
@@ -397,6 +402,15 @@ impl<I: HardwareInterface, BF: OutputPin, BI: InputPin, S: InitializedState>
             .registers()
             .b_bst_v_set()
             .modify(|_, w| w.b_bst_high_sh(f_ths))?;
+        Ok(())
+    }
+
+    /// Set the `BBstIPAdptDis` adaptive peak/valley current adjustment
+    pub fn set_adaptive_current_adjustment(&mut self, enabled: bool) -> Result<(), I> {
+        self.ll
+            .registers()
+            .b_bst_cfg1()
+            .modify(|_, w| w.b_bst_ip_adpt_dis(Bit::from(!enabled)))?;
         Ok(())
     }
 }
