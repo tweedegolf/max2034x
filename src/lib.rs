@@ -124,6 +124,10 @@ impl<I: HardwareInterface, BF: OutputPin, BI: InputPin, S: State> Max2034x<I, BF
         let id = self.ll.registers().chip_id().read()?.id();
         Ok(id)
     }
+
+    pub fn free(self) -> (ll::Max2034xLL<I>, Pins<BF, BI>) {
+        (self.ll, self.pins)
+    }
 }
 
 impl<I: HardwareInterface, BF: OutputPin, BI: InputPin> Max2034x<I, BF, BI, Disabled> {
@@ -402,7 +406,7 @@ impl<I: HardwareInterface, BF: OutputPin, BI: InputPin, S: InitializedState>
         self.ll
             .registers()
             .b_bst_v_set()
-            .modify(|_, w| w.b_bst_high_sh(f_ths))?;
+            .modify(|_, w| w.b_bst_fhigh_sh(f_ths))?;
         Ok(())
     }
 
@@ -446,4 +450,181 @@ pub mod state {
     state!(Uninitialized, "Uninitialized device");
     state!(Disabled, "Buck-boost enabled", true);
     state!(Enabled, "Buck-boost disabled", true);
+}
+
+#[cfg(test)]
+mod tests {
+    extern crate std;
+    use std::prelude::rust_2021::*;
+    use std::*;
+
+    use crate::{
+        devices::{DeviceVersion, Max20343F},
+        ll::Max2034xInterface,
+        state::Enabled,
+        CurrentLimit, FrequencyThreshold, Inductor, Max2034x, Pins, SwitchOverMode,
+    };
+    use device_driver::ll::LowLevelDevice;
+
+    use embedded_hal_mock::{
+        common::Generic,
+        i2c::{Mock as I2cMock, Transaction as I2cTransaction},
+        pin::{Mock as PinMock, State as PinState, Transaction as PinTransaction},
+    };
+
+    fn mock_transaction<F, V>(
+        i2c_expectations: impl IntoIterator<Item = I2cTransaction>,
+        boost_fast_expectations: impl IntoIterator<Item = PinTransaction>,
+        callback: F,
+        version: V,
+    ) where
+        F: FnOnce(
+            &mut Max2034x<
+                Max2034xInterface<Max20343F, Generic<I2cTransaction>>,
+                Generic<PinTransaction>,
+                Generic<PinTransaction>,
+                V::BootState,
+            >,
+        ),
+        V: DeviceVersion<BootState = Enabled>,
+    {
+        let _ = version;
+        let boost_fast = PinMock::new(&Vec::from_iter(boost_fast_expectations.into_iter()));
+        // We never expect anything from the nint pin as there's no real
+        // device connected.
+        let boost_nint = PinMock::new(&[]);
+        let pins = Pins {
+            boost_fast: Some(boost_fast),
+            boost_nint: Some(boost_nint),
+        };
+
+        // We always expect the CHIP ID to be requested on creation.
+        let mut expectations = vec![I2cTransaction::write_read(
+            V::ADDR,
+            vec![0x00],
+            vec![V::CHIP_ID],
+        )];
+        expectations.extend(i2c_expectations.into_iter());
+
+        let i2c = I2cMock::new(&expectations);
+        let mut buck_boost = crate::Max2034x::new(i2c, Max20343F, pins, Inductor::L1uH).unwrap();
+
+        callback(&mut buck_boost);
+
+        let (ll, _) = buck_boost.free();
+        let mut i2c = ll.free().free();
+        i2c.done();
+    }
+
+    #[test]
+    fn test_enable_fast_boost_pin() {
+        mock_transaction(
+            [
+                I2cTransaction::write_read(Max20343F::ADDR, vec![0x04], vec![0x84]),
+                I2cTransaction::write(Max20343F::ADDR, vec![0x04, 0x84 | 0x80]),
+            ],
+            [PinTransaction::set(PinState::High)],
+            |buck_boost| {
+                buck_boost.enable_fast_boost_pin(true).unwrap();
+                buck_boost.enable_fast_boost(true).unwrap();
+            },
+            Max20343F,
+        )
+    }
+
+    #[test]
+    fn test_set_peak_current_limits() {
+        mock_transaction(
+            [
+                I2cTransaction::write_read(Max20343F::ADDR, vec![0x03], vec![0xC8]),
+                I2cTransaction::write(Max20343F::ADDR, vec![0x03, 0xFF]),
+            ],
+            [],
+            |buck_boost| {
+                buck_boost
+                    .set_peak_current_limits(
+                        CurrentLimit::from_milliamps(750),
+                        CurrentLimit::from_milliamps(750),
+                    )
+                    .unwrap();
+            },
+            Max20343F,
+        )
+    }
+
+    #[test]
+    fn test_set_force_switch_over() {
+        mock_transaction(
+            [
+                I2cTransaction::write_read(Max20343F::ADDR, vec![0x04], vec![0x84]),
+                I2cTransaction::write(Max20343F::ADDR, vec![0x04, 0x84 | 0x20]),
+            ],
+            [],
+            |buck_boost| {
+                buck_boost
+                    .set_force_switch_over(SwitchOverMode::Vin)
+                    .unwrap();
+            },
+            Max20343F,
+        )
+    }
+
+    #[test]
+    fn test_enable_fast_boost() {
+        mock_transaction(
+            [],
+            [PinTransaction::set(PinState::High)],
+            |buck_boost| {
+                buck_boost.enable_fast_boost(true).unwrap();
+            },
+            Max20343F,
+        )
+    }
+
+    #[test]
+    fn test_enable_low_emi() {
+        mock_transaction(
+            [
+                I2cTransaction::write_read(Max20343F::ADDR, vec![0x01], vec![0x93]),
+                I2cTransaction::write(Max20343F::ADDR, vec![0x01, 0x93 | 0x08]),
+            ],
+            [],
+            |buck_boost| {
+                buck_boost.enable_low_emi(true).unwrap();
+            },
+            Max20343F,
+        )
+    }
+
+    #[test]
+    fn test_enable_active_discharge() {
+        mock_transaction(
+            [
+                I2cTransaction::write_read(Max20343F::ADDR, vec![0x01], vec![0x93]),
+                I2cTransaction::write(Max20343F::ADDR, vec![0x01, 0x93 | 0x02]),
+            ],
+            [],
+            |buck_boost| {
+                buck_boost.enable_active_discharge(true).unwrap();
+            },
+            Max20343F,
+        )
+    }
+
+    #[test]
+    fn test_set_switch_freq_threshold() {
+        mock_transaction(
+            [
+                I2cTransaction::write_read(Max20343F::ADDR, vec![0x02], vec![0xD0]),
+                I2cTransaction::write(Max20343F::ADDR, vec![0x02, 0xD0 & 0x3F]),
+            ],
+            [],
+            |buck_boost| {
+                buck_boost
+                    .set_switch_freq_threshold(FrequencyThreshold::Rising25kFalling6_125k)
+                    .unwrap();
+            },
+            Max20343F,
+        )
+    }
 }
