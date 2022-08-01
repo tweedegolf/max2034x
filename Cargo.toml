@@ -1,6 +1,6 @@
 [package]
 name = "max2034x"
-version = "0.1.2"
+version = "0.1.3"
 edition = "2021"
 authors = ["Henk Oordt <hd@oordt.dev>"]
 description = "Driver crate for the MAX20343/MAX20344 family of buck/boost converters."
