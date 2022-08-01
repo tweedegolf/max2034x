@@ -189,6 +189,7 @@ impl<I: HardwareInterface, BF: OutputPin, BI: InputPin, S: InitializedState>
 {
     /// Get access to the low level registers. This is useful for when you need to change
     /// a register, but the high level interface hasn't implemented it yet.
+    /// Note: using the low-level interface you may break the driver typestate.
     pub fn ll(&mut self) -> &mut Max2034xLL<I> {
         &mut self.ll
     }
