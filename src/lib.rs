@@ -15,13 +15,13 @@ pub use types::*;
 
 #[cfg(feature = "eh-02")]
 use embedded_hal02::{
-    blocking::i2c::{WriteIter, WriteIterRead},
+    blocking::i2c::{Write, WriteRead},
     digital::v2::{InputPin, OutputPin},
 };
 #[cfg(feature = "eh-1")]
 use embedded_hal1::{
-    digital::blocking::{InputPin, OutputPin},
-    i2c::blocking::I2c,
+    digital::{InputPin, OutputPin},
+    i2c::I2c,
 };
 
 /// Version-specific declarations
@@ -53,7 +53,7 @@ type NewDeviceResult<V, I2C, BF, BI, BS> =
 impl<V, I2C, EBUS, BF, BI> Max2034x<ll::Max2034xInterface<V, I2C>, BF, BI, Uninitialized>
 where
     V: DeviceVersion,
-    I2C: WriteIter<Error = EBUS> + WriteIterRead<Error = EBUS>,
+    I2C: Write<Error = EBUS> + WriteRead<Error = EBUS>,
     EBUS: Debug,
     BF: OutputPin,
     BI: InputPin,

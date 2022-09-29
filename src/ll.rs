@@ -4,7 +4,7 @@ use crate::{
     devices::DeviceVersion, error::DeviceError, state::InitializedState, BuckBoostMode,
     FrequencyThreshold, Inductor, InterruptStatus, SwitchOverMode,
 };
-use core::{fmt::Debug, iter::once, marker::PhantomData};
+use core::{fmt::Debug, marker::PhantomData};
 use device_driver::{
     create_low_level_device, implement_registers, ll::register::RegisterInterface, Bit,
 };
@@ -12,7 +12,7 @@ use device_driver::{
 #[cfg(feature = "eh-02")]
 use embedded_hal02::blocking::i2c::{Write, WriteRead};
 #[cfg(feature = "eh-1")]
-use embedded_hal1::i2c::blocking::I2c;
+use embedded_hal1::i2c::I2c;
 
 /// Interface to the device
 pub struct Max2034xInterface<V, I2C> {
