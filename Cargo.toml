@@ -14,7 +14,7 @@ exclude = ["Cargo.lock", ".gitignore"]
 
 [dependencies]
 embedded-hal02 = { package = "embedded-hal", version = "0.2.7", features = ["unproven"], optional = true }
-embedded-hal1 = { package = "embedded-hal", version = "1.0.0-alpha.8", optional = true }
+embedded-hal1 = { package = "embedded-hal", version = "1.0.0-alpha.9", optional = true }
 device-driver = "0.3.1"
 num_enum = { version = "0.5.1", default_features = false }
 
