@@ -1,5 +1,6 @@
 //! Error type
 
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[derive(Debug)]
 /// Device error type
 pub enum DeviceError<EBUS> {

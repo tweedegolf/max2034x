@@ -17,6 +17,7 @@ embedded-hal02 = { package = "embedded-hal", version = "0.2.7", features = ["unp
 embedded-hal1 = { package = "embedded-hal", version = "1.0.0-alpha.9", optional = true }
 device-driver = "0.3.1"
 num_enum = { version = "0.5.1", default_features = false }
+defmt = { version = "0.3.2", optional = true }
 
 [dev-dependencies]
 embedded-hal-mock = { git = "https://github.com/tweedegolf/embedded-hal-mock", rev = "c813c91"}
@@ -25,6 +26,7 @@ embedded-hal-mock = { git = "https://github.com/tweedegolf/embedded-hal-mock", r
 default = ["eh-02"]
 eh-02 = ["dep:embedded-hal02"]
 eh-1 = ["dep:embedded-hal1"]
+defmt = ["dep:defmt"]
 
 [badges]
 maintenance = { status = "passively-maintained" }
