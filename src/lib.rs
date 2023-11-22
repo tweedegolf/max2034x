@@ -8,14 +8,21 @@ use device_driver::{
     Bit,
 };
 use devices::DeviceVersion;
-use embedded_hal::{
-    blocking::i2c::{WriteIter, WriteIterRead},
-    digital::v2::{InputPin, OutputPin},
-};
 use error::DeviceError;
 use ll::{HardwareInterface, Max2034xLL};
 use state::{Disabled, Enabled, InitializedState, State, Uninitialized};
 pub use types::*;
+
+#[cfg(feature = "eh-02")]
+use embedded_hal02::{
+    blocking::i2c::{Write, WriteRead},
+    digital::v2::{InputPin, OutputPin},
+};
+#[cfg(feature = "eh-1")]
+use embedded_hal1::{
+    digital::{InputPin, OutputPin},
+    i2c::I2c,
+};
 
 /// Version-specific declarations
 pub mod devices;
@@ -25,13 +32,13 @@ pub mod ll;
 pub mod types;
 
 /// Pin struct for the boost fast pin and the interrupt pin.
-pub struct Pins<BF: OutputPin, BI: InputPin> {
+pub struct Pins<BF, BI> {
     pub boost_fast: Option<BF>,
     pub boost_nint: Option<BI>,
 }
 
 /// Max2034x device driver.
-pub struct Max2034x<I: HardwareInterface, BF: OutputPin, BI: InputPin, S: State> {
+pub struct Max2034x<I: HardwareInterface, BF, BI, S: State> {
     ll: Max2034xLL<I>,
     pins: Pins<BF, BI>,
     inductor: Inductor,
@@ -42,10 +49,33 @@ type Result<T, I> = core::result::Result<T, DeviceError<<I as RegisterInterface>
 type NewDeviceResult<V, I2C, BF, BI, BS> =
     Result<Max2034x<ll::Max2034xInterface<V, I2C>, BF, BI, BS>, ll::Max2034xInterface<V, I2C>>;
 
+#[cfg(feature = "eh-02")]
 impl<V, I2C, EBUS, BF, BI> Max2034x<ll::Max2034xInterface<V, I2C>, BF, BI, Uninitialized>
 where
     V: DeviceVersion,
-    I2C: WriteIter<Error = EBUS> + WriteIterRead<Error = EBUS>,
+    I2C: Write<Error = EBUS> + WriteRead<Error = EBUS>,
+    EBUS: Debug,
+    BF: OutputPin,
+    BI: InputPin,
+{
+    /// Create a new device instance. Creates a new low-level Max2034xInterface, and
+    /// calls [`Self::with_interface`], passing the low-level interface.
+    pub fn new(
+        i2c: I2C,
+        version: V,
+        pins: Pins<BF, BI>,
+        inductor: Inductor,
+    ) -> NewDeviceResult<V, I2C, BF, BI, V::BootState> {
+        let ll = ll::Max2034xInterface::new(i2c, version);
+        Self::with_interface(ll, pins, inductor)
+    }
+}
+
+#[cfg(feature = "eh-1")]
+impl<V, I2C, EBUS, BF, BI> Max2034x<ll::Max2034xInterface<V, I2C>, BF, BI, Uninitialized>
+where
+    V: DeviceVersion,
+    I2C: I2c<Error = EBUS>,
     EBUS: Debug,
     BF: OutputPin,
     BI: InputPin,
@@ -266,10 +296,7 @@ impl<I: HardwareInterface, BF: OutputPin, BI: InputPin, S: InitializedState>
     /// Does nothing if the passed pin is `None`.
     /// Be sure to enable the fast boost bin using
     /// [`Self::enable_fast_boost_pin`].
-    pub fn enable_fast_boost(
-        &mut self,
-        enabled: bool,
-    ) -> core::result::Result<(), <BF as OutputPin>::Error> {
+    pub fn enable_fast_boost(&mut self, enabled: bool) -> core::result::Result<(), BF::Error> {
         match &mut self.pins.boost_fast {
             Some(p) => p.set_state(enabled.into()),
             None => Ok(()),
@@ -278,7 +305,7 @@ impl<I: HardwareInterface, BF: OutputPin, BI: InputPin, S: InitializedState>
 
     /// Read `boost_nint` pin level, indicating whether an interrupt is active.
     /// Returns `false` if the passed pin in `None`.
-    pub fn interrupt_active(&mut self) -> core::result::Result<bool, <BI as InputPin>::Error> {
+    pub fn interrupt_active(&mut self) -> core::result::Result<bool, BI::Error> {
         match &self.pins.boost_nint {
             Some(p) => p.is_low(),
             None => Ok(false),
@@ -452,7 +479,7 @@ pub mod state {
     state!(Enabled, "Buck-boost disabled", true);
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "eh-02"))]
 mod tests {
     extern crate std;
     use std::prelude::rust_2021::*;

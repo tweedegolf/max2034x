@@ -23,3 +23,10 @@ let mut buck_boost =
 buck_boost.enable_fast_boost(true).unwrap();
 buck_boost.enable_fast_boost_pin(true).unwrap();
 ```
+
+## EH 1.0 support
+
+By default this crate uses embedded-hal 0.2, but that can changed to (the alpha of) embedded-hal 1.0 with a feature.
+Just disable the deafault features and enable the `eh-1` feature. (They cannot be active at the same time)
+
+Because EH-1.0 is still unstable, it falls outside of the semver guarantees.

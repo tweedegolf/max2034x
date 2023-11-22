@@ -2,6 +2,7 @@
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 #[repr(u8)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[derive(Debug, Copy, Clone, Eq, PartialEq, IntoPrimitive, TryFromPrimitive)]
 /// Device interrupt status and mask.
 pub enum InterruptStatus {
@@ -43,6 +44,7 @@ impl core::ops::Not for InterruptStatus {
 }
 
 #[repr(u8)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[derive(Debug, Copy, Clone, Eq, PartialEq, IntoPrimitive, TryFromPrimitive)]
 /// Device Buck-boost mode
 pub enum BuckBoostMode {
@@ -54,6 +56,7 @@ pub enum BuckBoostMode {
 }
 
 #[repr(u8)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[derive(Debug, Copy, Clone, Eq, PartialEq, IntoPrimitive, TryFromPrimitive)]
 /// Switch over mode. Defines whether the device internals
 /// are powered from V<sub>IN</sub> or V<sub>OUT</sub>
@@ -63,6 +66,7 @@ pub enum SwitchOverMode {
 }
 
 /// Buck-boost output voltage setting
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct OutputVoltage {
     pub(crate) raw: u8,
 }
@@ -87,6 +91,7 @@ impl OutputVoltage {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct CurrentLimit {
     milliamps: u16,
 }
@@ -114,6 +119,7 @@ impl CurrentLimit {
 /// Inductor that is being used with this device.
 /// Dictates the value of BBstFETScale bit in
 /// the BBstCfg1 register
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Inductor {
     /// 1 uH inductor
@@ -123,6 +129,7 @@ pub enum Inductor {
 }
 
 #[repr(u8)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[derive(Debug, Copy, Clone, Eq, PartialEq, IntoPrimitive, TryFromPrimitive)]
 pub enum FrequencyThreshold {
     Rising25kFalling6_125k = 0x00,

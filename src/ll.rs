@@ -4,11 +4,15 @@ use crate::{
     devices::DeviceVersion, error::DeviceError, state::InitializedState, BuckBoostMode,
     FrequencyThreshold, Inductor, InterruptStatus, SwitchOverMode,
 };
-use core::{fmt::Debug, iter::once, marker::PhantomData};
+use core::{fmt::Debug, marker::PhantomData};
 use device_driver::{
     create_low_level_device, implement_registers, ll::register::RegisterInterface, Bit,
 };
-use embedded_hal::blocking::i2c::{WriteIter, WriteIterRead};
+
+#[cfg(feature = "eh-02")]
+use embedded_hal02::blocking::i2c::{Write, WriteRead};
+#[cfg(feature = "eh-1")]
+use embedded_hal1::i2c::I2c;
 
 /// Interface to the device
 pub struct Max2034xInterface<V, I2C> {
@@ -16,10 +20,9 @@ pub struct Max2034xInterface<V, I2C> {
     _marker: PhantomData<V>,
 }
 
-impl<V, I2C, EBUS> Max2034xInterface<V, I2C>
+impl<V, I2C> Max2034xInterface<V, I2C>
 where
     V: DeviceVersion,
-    I2C: WriteIter<Error = EBUS> + WriteIterRead<Error = EBUS>,
 {
     /// Create a new interface to the device
     pub fn new(i2c: I2C, version: V) -> Self {
@@ -35,10 +38,11 @@ where
     }
 }
 
+#[cfg(feature = "eh-02")]
 impl<V, I2C, EBUS> RegisterInterface for Max2034xInterface<V, I2C>
 where
     V: DeviceVersion,
-    I2C: WriteIter<Error = EBUS> + WriteIterRead<Error = EBUS>,
+    I2C: Write<Error = EBUS> + WriteRead<Error = EBUS>,
     EBUS: Debug,
 {
     type Address = u8;
@@ -49,7 +53,7 @@ where
         address: Self::Address,
         value: &mut [u8],
     ) -> Result<(), DeviceError<EBUS>> {
-        self.i2c.write_iter_read(V::ADDR, once(address), value)?;
+        self.i2c.write_read(V::ADDR, &[address], value)?;
         Ok(())
     }
 
@@ -58,16 +62,63 @@ where
         address: Self::Address,
         value: &[u8],
     ) -> Result<(), DeviceError<EBUS>> {
+        // All registers are 1 byte, so value is only ever 1 byte long
+        debug_assert_eq!(value.len(), 1);
         self.i2c
-            .write(V::ADDR, once(address).chain(value.iter().copied()))?;
+            .write(V::ADDR, &[address, value[0]])?;
         Ok(())
     }
 }
 
+#[cfg(feature = "eh-02")]
 impl<V, I2C, EBUS> HardwareInterface for Max2034xInterface<V, I2C>
 where
     V: DeviceVersion,
-    I2C: WriteIter<Error = EBUS> + WriteIterRead<Error = EBUS>,
+    I2C: Write<Error = EBUS> + WriteRead<Error = EBUS>,
+    EBUS: Debug,
+{
+    type BootState = V::BootState;
+    const CHIP_ID: u8 = V::CHIP_ID;
+    const DEFAULT_INDUCTOR_CONFIG: Inductor = V::DEFAULT_INDUCTOR_CONFIG;
+}
+
+#[cfg(feature = "eh-1")]
+impl<V, I2C, EBUS> RegisterInterface for Max2034xInterface<V, I2C>
+where
+    V: DeviceVersion,
+    I2C: I2c<Error = EBUS>,
+    EBUS: Debug,
+{
+    type Address = u8;
+    type InterfaceError = DeviceError<EBUS>;
+
+    fn read_register(
+        &mut self,
+        address: Self::Address,
+        value: &mut [u8],
+    ) -> Result<(), DeviceError<EBUS>> {
+        self.i2c.write_read(V::ADDR, &[address], value)?;
+        Ok(())
+    }
+
+    fn write_register(
+        &mut self,
+        address: Self::Address,
+        value: &[u8],
+    ) -> Result<(), DeviceError<EBUS>> {
+        // All registers are 1 byte, so value is only ever 1 byte long
+        debug_assert_eq!(value.len(), 1);
+        self.i2c
+            .write(V::ADDR, &[address, value[0]])?;
+        Ok(())
+    }
+}
+
+#[cfg(feature = "eh-1")]
+impl<V, I2C, EBUS> HardwareInterface for Max2034xInterface<V, I2C>
+where
+    V: DeviceVersion,
+    I2C: I2c<Error = EBUS>,
     EBUS: Debug,
 {
     type BootState = V::BootState;
